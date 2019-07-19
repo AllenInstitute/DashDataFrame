@@ -1,50 +1,40 @@
 import dash
 import numpy as np
-import numpy as np
-import os
-import neuroglancer
-import requests
-import json
 import dash
 from dash.dependencies import Input, Output, State
 import dash_html_components as dhc
 import dash_core_components as dcc
 import dash_html_components as html
-from textwrap import dedent as d
-from textwrap import dedent
 import plotly.graph_objs as go
-
+from textwrap import dedent as d
 
 __version__ = "0.0.1"
 
 # function to highlight a certain subset of points depending on selection
-def highlight_points(dff, selectedData, ids, id_column):
+def highlight_points(dff, selectedData, ids):
         
     dff['outline_color']='white'
     dff['outline_width']=.5
     if selectedData:
         selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
                                     dtype=np.int64)
-        dff.loc[dff[id_column].isin(selected_mesh_ids),'outline_color']='firebrick'
-        dff.loc[dff[id_column].isin(selected_mesh_ids),'outline_width']=4
+        dff.loc[dff.index.isin(selected_mesh_ids),'outline_color']='firebrick'
+        dff.loc[dff.index.isin(selected_mesh_ids),'outline_width']=4
     else:
         selected_mesh_ids =  np.array([], dtype=np.int64)
     if ids:
         list_ids = ids.split(',')
         list_ids = np.array(list_ids, dtype=np.int64)
-        dff.loc[dff[id_column].isin(list_ids),'outline_color']='orange'
-        dff.loc[dff[id_column].isin(list_ids) & dff[id_column].isin(selected_mesh_ids),'outline_color']='orchid'
+        dff.loc[dff.index.isin(list_ids),'outline_color']='orange'
+        dff.loc[dff.index.isin(list_ids) & dff.index.isin(selected_mesh_ids),'outline_color']='orchid'
             
     return dff[dff.visible].outline_color.values, dff[dff.visible].outline_width.values
 
 
 def configure_app(app, df,
                   link_name="dynamiclink",
-                  create_link=False,
                   link_func=None,
-                  id_column=None,
-                  metrics=None,
-                  category_columns=None):
+                  plot_columns=None):
     """ 
     Parameters:
     df: pandas.DataFrame
@@ -58,13 +48,12 @@ def configure_app(app, df,
         what function to call if you make a link
 
     """
-    color_options = list(metrics)
-    assert np.all(np.isin(np.array(metrics), df.columns))
-    color_options.append('None')
+    if plot_columns is None:
+        plot_columns = df.select_dtypes(np.number).columns
 
-    if create_link and (link_func is None):
-        raise Exception(
-            "if you want a link created pass a function, f(row_indices)")
+    color_options = list(plot_columns)
+    assert np.all(np.isin(np.array(plot_columns), df.columns))
+    color_options.append('None')
 
     app.layout = html.Div([
         html.Div([
@@ -73,7 +62,7 @@ def configure_app(app, df,
                 dcc.Dropdown(
                     id='xaxis-column',
                     options=[{'label': i, 'value': i}
-                             for i in metrics],
+                             for i in plot_columns],
                     value='depth'
                 ),
                 dcc.RadioItems(
@@ -90,7 +79,7 @@ def configure_app(app, df,
                 dcc.Dropdown(
                     id='yaxis-column',
                     options=[{'label': i, 'value': i}
-                             for i in metrics],
+                             for i in plot_columns],
                     value='y'
                 ),
                 dcc.RadioItems(
@@ -184,7 +173,7 @@ def configure_app(app, df,
                 app._prev_sort_clicks += 1
                 selected_ids = np.array(
                     [p['customdata'] for p in selectedData['points']], dtype=np.int64)
-                app._df['visible'] = app._df[id_column].isin(selected_ids)
+                app._df['visible'] = app._df.index.isin(selected_ids)
                 selectedData = None
         if reset_clicks is not None:
             if reset_clicks != app._prev_reset_clicks:
@@ -201,14 +190,14 @@ def configure_app(app, df,
         outline_color = ['white'] * np.sum(app._df.visible)
         outline_width = [0.5] * np.sum(app._df.visible)
         if selectedData or ids:
-            outline_color, outline_width = highlight_points(app._df, selectedData, ids, id_column)
-        hoverdata = app._df[app._df.visible][id_column]
+            outline_color, outline_width = highlight_points(app._df, selectedData, ids)
+        hoverdata = app._df[app._df.visible].index.values
 
         return {
             'data': [go.Scatter(
                 x=app._df.loc[app._df.visible, xaxis_column_name],
                 y=app._df.loc[app._df.visible, yaxis_column_name],
-                customdata=app._df.loc[app._df.visible, id_column],
+                customdata=app._df.loc[app._df.visible].index.values,
                 text=hoverdata,
                 mode='markers',
                 marker={
@@ -247,8 +236,8 @@ def configure_app(app, df,
         if selectedData:
             selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
                                         dtype=np.int64)
-            selected_df = app._df[app._df[id_column].isin(selected_mesh_ids)]
-            selected_mesh_ids = selected_df[id_column].values
+            selected_df = app._df[app._df.index.isin(selected_mesh_ids)]
+            selected_mesh_ids = selected_df.index.values
         else:
             selected_mesh_ids = np.array([], dtype=np.int64)
         if ids:
