@@ -12,3 +12,5 @@ Check out the example in (examples/test_dash.py).  You will need to pip install 
 
 All you need is to get a dataframe and  dash app, and then use dashdataframe.configure_app to setup the dash app and then launch your dash app.
 
+# Level of Support
+We are planning on occasional updating this tool with no fixed schedule. Community involvement is encouraged through both issues and pull requests.
