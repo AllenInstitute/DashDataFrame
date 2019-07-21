@@ -11,13 +11,18 @@ Clone this repository and install it with `python setup.py install` or `pip inst
 All you need is to get a dataframe and  dash app, and then use dashdataframe.configure_app to setup the dash app and then launch your dash app. A simpliest example..
 
 ```Python
+    # make a fake dataframe using sklearn
+    from sklearn.datasets import make_blobs
+    data, clusters = make_blobs(n_samples=200, n_features=6,
+                                centers=4, cluster_std=1.6,
+                                random_state=50)
+    df = pd.DataFrame(data)
+    df['cluster']=clusters
+
     import dash
     from dashdataframe import configure_app
     # initialize a dash app
     app = dash.Dash()
-    
-    # load your dataframe from somewhere
-    df = ... 
     
     # configure the app
     configure_app(app, df)
