@@ -8,9 +8,25 @@ An simplified interface for making dash apps to explore multi-dimensional datafr
 Clone this repository and install it with `python setup.py install`
 
 # Getting Started
-Check out the example in (examples/test_dash.py).  You will need to pip install neuroglancer, but it will demonstrate how to create a visualization of a dataframe that summarizes basic statistics of fly brain regions, and allows you to select regions and create a custom link to visualize the selected regions in neuroglancer. 
+All you need is to get a dataframe and  dash app, and then use dashdataframe.configure_app to setup the dash app and then launch your dash app. A simpliest example..
 
-All you need is to get a dataframe and  dash app, and then use dashdataframe.configure_app to setup the dash app and then launch your dash app.
+```Python
+    import dash
+    from dashdataframe import configure_app
+    # initialize a dash app
+    app = dash.Dash()
+    
+    # load your dataframe from somewhere
+    df = ... 
+    
+    # configure the app
+    configure_app(app, df)
+    
+    # run the dash server
+    app.run_server(port=8880)
+```
+
+Check out the example in (examples/test_dash.py).  You will need to pip install neuroglancer, but it will demonstrate how to create a visualization of a dataframe that summarizes basic statistics of fly brain regions, and allows you to select regions and create a custom link to visualize the selected regions in neuroglancer.   You supply configure_app with a function that takes a dataframe and a set of selected indices in your dataframe and returns a url. 
 
 # Level of Support
 We are planning on occasional updating this tool with no fixed schedule. Community involvement is encouraged through both issues and pull requests.
