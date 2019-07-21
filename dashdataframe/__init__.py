@@ -63,7 +63,7 @@ def configure_app(app, df,
                     id='xaxis-column',
                     options=[{'label': i, 'value': i}
                              for i in plot_columns],
-                    value='depth'
+                    value=plot_columns[0]
                 ),
                 dcc.RadioItems(
                     id='xaxis-type',
@@ -80,7 +80,7 @@ def configure_app(app, df,
                     id='yaxis-column',
                     options=[{'label': i, 'value': i}
                              for i in plot_columns],
-                    value='y'
+                    value=plot_columns[1]
                 ),
                 dcc.RadioItems(
                     id='yaxis-type',
@@ -122,7 +122,7 @@ def configure_app(app, df,
 
             html.Div([
                 dcc.Markdown(dedent('''
-                                    #### Where are these cells?
+                                    #### Where are these IDs?
                                     ''')),
 
                 dcc.Input(
@@ -139,12 +139,6 @@ def configure_app(app, df,
                 html.Button('Digital Sort', id='sortButton'), html.Button(
                     'Reset Sort', id='resetButton')
             ]),
-            html.Div([
-                html.A('For questions or feedback, please email leilae@alleninstitute.org',
-                       id='info',
-                       target="_blank")
-            ],
-                style={'width': '40%', 'float': 'right'}),
         ])
     ])
 
