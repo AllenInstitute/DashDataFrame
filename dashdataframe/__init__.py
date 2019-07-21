@@ -8,7 +8,7 @@ import dash_html_components as html
 import plotly.graph_objs as go
 from textwrap import dedent
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 # function to highlight a certain subset of points depending on selection
 def highlight_points(dff, selectedData, ids):
