@@ -1,6 +1,7 @@
 import dash
+import importlib
 import numpy as np
-import dash
+import pandas as pd
 from dash.dependencies import Input, Output, State
 import dash_html_components as dhc
 import dash_core_components as dcc
@@ -16,10 +17,15 @@ import seaborn as sns
 from scipy.stats import zscore
 
 import scipy.cluster.hierarchy as shc
-from sklearn.cluster import AgglomerativeClustering, KMeans
+from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
 
+import dashdataframe.dashdf_layouts as dfl
+
+#dcc = importlib.import_module("apps.dash-svm.utils.dash_reusable_components")
 
 __version__ = "0.2.0"
+
+
 
 # function to highlight a certain subset of points depending on selection
 def highlight_points(dff, selectedData, ids):
@@ -58,7 +64,7 @@ def calculate_new_kmeans(dff,num_clusters, metrics, znorm=False):
     kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(M)
     return kmeans.labels_
 
-def calculate_new_aggclustering(dff, num_clusters, metrics, znorm=False):
+def calculate_new_aggclustering(dff, num_clusters, metrics, linkage_type, znorm=False):
     M = dff.loc[dff.visible].dropna()[metrics]
     if zscore:
         M = M.apply(zscore)
@@ -66,6 +72,15 @@ def calculate_new_aggclustering(dff, num_clusters, metrics, znorm=False):
     cluster = AgglomerativeClustering(n_clusters=num_clusters, affinity='euclidean', linkage='ward')  
     cluster.fit_predict(M)
     return cluster.labels_
+
+def calculate_new_spectclustering(dff, num_clusters, metrics, znorm=False):
+    M = dff.loc[dff.visible].dropna()[metrics]
+    if zscore:
+        M = M.apply(zscore)
+        M = M.values
+    cluster = SpectralClustering(n_clusters=num_clusters, assign_labels='discretize', random_state=0).fit_predict(M)
+    return cluster.labels_
+
 
 
 def configure_app(app, df,
@@ -87,7 +102,7 @@ def configure_app(app, df,
         what function to call if you make a link
 
     """
-    print(link_name,link_func,plot_columns,add_umap,add_clustering)
+
     if plot_columns is None:
         
         plot_columns = df.select_dtypes(np.number).columns
@@ -96,301 +111,19 @@ def configure_app(app, df,
     color_options = list(plot_columns)
     assert np.all(np.isin(np.array(plot_columns), df.columns))
     color_options.append('None')
-    
-
-    scatter_layout = html.Div([
-        html.Div([
-
-            html.Div([
-                html.H1('Scatter Plot Explorer',
-                       style={'color':'steelblue'}),
-                dcc.Markdown(dedent('''
-                    ### Explore your dataset by plotting various features 
-                    Note: The points visible here can be clustered using the UMAP app feature. 
-                    If you have selected a subset of points using Filter Sort, the UMAP analysis will only include those points.
-                    
-                    ''')),
-    
-            ],
-            style={'width': '100%', 'display': 'inline-block', 'fontFamily':'Arial'}),
-            
-            html.Div([
-                dcc.Markdown(dedent('''
-                    Choose your axis features
-                    ''')),
-                dcc.Markdown(dedent('''
-                    **X axis:**
-                    ''')),
-                dcc.Dropdown(
-                    id='xaxis-column',
-                    options=[{'label': i, 'value': i} for i in plot_columns],
-                    value=plot_columns[0],
-                    style={'fontSize':'14'}
-                ),
-                dcc.RadioItems(
-                    id='xaxis-type',
-                    options=[{'label': i, 'value': i} for i in ['Linear', 'Log']],
-                    value='Linear',
-                    labelStyle={'fontSize':'13','display': 'inline-block'}
-                ),
-                dcc.Markdown(dedent('''
-                    **Y axis:**
-                    ''')),
-                dcc.Dropdown(
-                    id='yaxis-column',
-                    options=[{'label': i, 'value': i} for i in plot_columns],
-                    value=plot_columns[1],
-                    style={'fontSize':'14'}
-                ),
-                dcc.RadioItems(
-                    id='yaxis-type',
-                    options=[{'label': i, 'value': i} for i in ['Linear', 'Log']],
-                    value='Linear',
-                    labelStyle={'fontSize':'13', 'display': 'inline-block'}
-                ),
-                dcc.Markdown(dedent('''
-                    Choose your color feature
-                    ''')),
-                dcc.Dropdown(
-                    id='color_feature',
-                    options=[{'label': i, 'value': i} for i in color_options],
-                    value='None',
-                    style={'fontSize':'14'}
-                ),
-                
-                dcc.Markdown(dedent('''
-                    Looking for specific data points? Enter IDs below.
-                    ''')),
-    
-                dcc.Input(
-                    id = 'id_list',
-                    placeholder='Enter list of IDs you would like to highlight',
-                    type='text',
-                    size = 80,
-                    value='',
-                    style= {'fontSize': '14', 'height': '50px', 'width':'95%'}
-                ),
-                
-                dcc.Markdown(dedent('''
-                    To continue exploring only selected points, use Digital Sort below.
-                    ''')),
-                html.Button('Filter Sort', id='sortButton', style={'fontSize':'12px'}), 
-                
-                html.Button('Reset Sort', id='resetButton', style={'fontSize':'12px'})
-            ],
-            style={'width': '18%', 'display': 'inline-block', 'height':'600px', 
-                           'backgroundColor':'aliceblue', 'fontFamily':'Arial'}),
-            
-            
-            html.Div([  
-                dcc.Graph(id='indicator-graphic'),
-                
-                html.A(f'{link_name}', id='link', href='', target="_blank")
-                ],
-           
-                style={'width': '80%','float':'right', 'display':'inline-block', 'fontFamily':'Arial'}),
-    
-        ]),
-    ])
-
-    umap_layout = html.Div([
-    html.Div([
-
-        html.Div([
-            html.H1('Plot with UMAP',
-                style={'color':'purple'}),
-            dcc.Markdown(dedent('''
-            ### Explore your dataset using UMAP 
-            Note: The points represented are those visible in the scatter plot explorer 
-            For example, if you have selected a subset using Filter Sort, this representation will only show those points.
-            
-            ''')),
-
-            ],
-            style={'width': '100%', 'display': 'inline-block', 'fontFamily':'Arial'}),
-
-        html.Div([
-            dcc.Markdown(dedent('''
-            Select the features you would like to include in your UMAP plot
-            ''')),
-            dcc.Markdown(dedent('''
-            Note: If certain points are missing features you have selected, they will not be included
-            ''')),
-
-            dcc.Checklist(
-            id = 'umap_metrics',
-            options = [{'label': m, 'value':m} for m in plot_columns],
-
-            values=[],
-            labelStyle={'fontSize': '14', 'display': 'inline-block'}
-            ),
-
-            html.Button('Select All', 
-                    id='umap_features_button',
-                    style={'fontSize':'12px'}),
-
-            html.Button('Reset All', 
-                    id='unselect_button',
-                    style={'fontSize':'12px'}),
-
-            dcc.RadioItems(
-                id='umap_norm',
-                options=[{'label': i, 'value': i} for i in ['Raw_Values','Znorm']],
-                value='Raw_Values',
-                labelStyle={'fontSize':'13','display': 'inline-block'}
-                ),
-
-            html.Button('Calculate UMAP', 
-                    id='umap_button',
-                    style={'fontSize':'12px'})
-
-        ],
-        style={'width': '18%', 'display': 'inline-block', 'height':'600px', 
-                'backgroundColor':'ghostwhite', 'fontFamily':'Arial'}),
-
-        html.Div([
-
-            dcc.Graph(id='umap-graphic'),
-
-            html.A(f'{link_name}', id='umap_link', href='', target="_blank")
-        ],
-        style={'width': '80%','float':'right', 'display':'inline-block', 'fontFamily':'Arial'}),
-
-        ]),
-    ])
-    
-
-    methods = ["KMeans", "Sklearn Agglomerative"]
  
-    cluster_layout = html.Div([
-        html.Div([
-
-            html.Div([
-                html.H1('Hierarchical Clustering',
-                    style={'color':'green'}),
-                dcc.Markdown(dedent('''
-                ### Explore your dataset using various clustering methods 
-                Note: The points clustered are those visible in scatter plot explorer 
-                For example, if you have selected a subset using the  Filter Sort button, this clustering analysis will
-                only be done on those points.
-                
-                ''')),
-
-                ],
-            style={'width': '100%', 'display': 'inline-block', 'fontFamily':'Arial'}),
-
-            html.Div([
-                dcc.Markdown(dedent('''
-                Choose your clustering method
-                ''')),
-                dcc.Dropdown(
-                    id='method',
-                    options=[{'label': i, 'value': i} for i in methods],
-                    value='Sklearn Agglomerative',
-                    style={'fontSize':'14'}
-                    ),
-
-                dcc.Input(
-                    id = 'num_clusters',
-                    placeholder='Enter the number of clusters yo',
-                    type='text',
-                    size = 80,
-                    value=None,
-                    style= {'fontSize': '14', 'height': '50px', 'width':'95%'}
-                    ),
-                dcc.Markdown(dedent('''
-                Select the features you would like to include in your analysis
-                ''')),
-                dcc.Markdown(dedent('''
-                Note: If certain rows are missing features you have selected, the rows will not be included
-                ''')),
-            
-                dcc.Checklist(
-                    id = 'cluster_metrics',
-                    options = [{'label': m, 'value':m} for m in plot_columns],
-
-                    values=[],
-                    labelStyle={'fontSize': '14', 'display': 'inline-block'}
-                    ),
-
-                html.Button('Select All', 
-                        id='cluster_features_button',
-                        style={'fontSize':'12px'}),
-
-                html.Button('Reset All', 
-                    id='reset_features_button',
-                    style={'fontSize':'12px'}),
-
-                dcc.RadioItems(
-                    id='cluster_norm',
-                    options=[{'label': i, 'value': i} for i in ['Raw_Values','Znorm']],
-                    value='Raw_Values',
-                    labelStyle={'fontSize':'13','display': 'inline-block'}
-                    ),
-
-                html.Button('Cluster!', 
-                        id='clusterButton',
-                        style={'fontSize':'12px'}),
-
-                dcc.Markdown(dedent('''
-                Choose X and Y axis features for the scatter plot
-                ''')),
-                dcc.Markdown(dedent('''
-                **X axis:**
-                ''')),
-                dcc.Dropdown(
-                    id='cluster-xaxis-column',
-                    options=[{'label': i, 'value': i} for i in plot_columns],
-                    value=plot_columns[0],
-                    style={'fontSize':'14'}
-                    ),
-                dcc.RadioItems(
-                    id='cluster-xaxis-type',
-                    options=[{'label': i, 'value': i} for i in ['Linear', 'Log']],
-                    value='Linear',
-                    labelStyle={'fontSize':'13','display': 'inline-block'}
-                    ),
-                dcc.Markdown(dedent('''
-                **Y axis:**
-                ''')),
-                dcc.Dropdown(
-                    id='cluster-yaxis-column',
-                    options=[{'label': i, 'value': i} for i in plot_columns],
-                    value=plot_columns[1],
-                    style={'fontSize':'14'}
-                    ),
-                dcc.RadioItems(
-                    id='cluster-yaxis-type',
-                    options=[{'label': i, 'value': i} for i in ['Linear', 'Log']],
-                    value='Linear',
-                    labelStyle={'fontSize':'13','display': 'inline-block'}
-                    )],
-            style={'width': '18%', 'display': 'inline-block', 'height':'1000px', 
-                    'backgroundColor':'honeydew', 'fontFamily':'Arial'}),
-
-            html.Div([
-
-                dcc.Graph(id='dendro-graphic'),
-
-                dcc.Graph(id='cluster-graphic'),
-
-                html.A('Neuroglancer',id= 'cluster_link', 
-                        href='', 
-                        target="_blank"),
-                ],
-            style={'width': '80%','float':'right', 'display':'inline-block', 'fontFamily':'Arial'}),
-
-        ])
-    ])
+    scatter_layout = dfl.make_scatter_layout(plot_columns, color_options, link_name)
     scatter_tab = dcc.Tab(label='Scatter Plot Explorer', children=[scatter_layout])
     tabs = [scatter_tab]
 
     if add_umap is True:
-        print('true umap')
+        print('adding umap tab')
+        umap_layout = dfl.make_umap_layout(plot_columns, link_name)
         umap_tab = dcc.Tab(label='UMAP Explorer', children=[umap_layout])
         tabs.append(umap_tab)
     if add_clustering:
-        print('true clustering')
+        print('adding clustering tab')
+        cluster_layout = dfl.make_cluster_layout(plot_columns, link_name)
         cluster_tab = dcc.Tab(label='Clustering Explorer', children=[cluster_layout])
         tabs.append(cluster_tab)
 
@@ -606,28 +339,26 @@ def configure_app(app, df,
 
     if add_clustering ==True:
         @app.callback(dash.dependencies.Output('dendro-graphic', 'figure'),
-            [dash.dependencies.Input('clusterButton', 'n_clicks'),
-            dash.dependencies.Input('num_clusters', 'value'),
+            [dash.dependencies.Input('num_clusters', 'value'),
             dash.dependencies.Input('cluster-graphic', 'selectedData'),
             dash.dependencies.Input('cluster_metrics', 'values'),
             dash.dependencies.Input('cluster_norm', 'value'),
             ])
             
-        def update_dendro_graph(cluster_clicks,num_clusters, selectedData,selected_metrics, norm):
+        def update_dendro_graph(num_clusters, selectedData,selected_metrics, norm):
             
             app._prev_cluster_clicks
             
             data = app._df.loc[app._df.visible].dropna()[selected_metrics]
             if norm == 'Znorm':
                 data = data.apply(zscore)
-            
-                
-            #palette = sns.color_palette(palette='Set2').as_hex()
-            
-            # if num_clusters is not None:
-            #     colors = [palette[c] for c in range(int(num_clusters))]
-            #shc.set_link_color_palette(list(palette.as_hex()))
-            dendro = ff.create_dendrogram(data, linkagefun= lambda x: shc.linkage(data, 'ward', metric='euclidean'))
+
+            color_thresh = None
+            if app._prev_cluster_clicks == 0:
+                color_thresh = 0.0   
+       
+            dendro = ff.create_dendrogram(data, linkagefun= lambda x: shc.linkage(data, 'ward', metric='euclidean'), 
+                                                                                    color_threshold = color_thresh)
             dendro['layout'].update({'height':600, 'xaxis': {'automargin': True, 'showticklabels':False}})
             return dendro
         
@@ -651,9 +382,7 @@ def configure_app(app, df,
             
             app._cluster_color
             app._prev_cluster_clicks
-        
             
-
             outline_color = ['white'] * np.sum(app._df.visible)
             outline_width = [0.5] * np.sum(app._df.visible)
 
@@ -669,10 +398,17 @@ def configure_app(app, df,
             palette = sns.color_palette(palette='Set2').as_hex()
             if cluster_clicks is not None:
                 if cluster_clicks != app._prev_cluster_clicks:
-                    if method == 'Sklearn Agglomerative':
-                        clusters = calculate_new_aggclustering(app._df, int(num_clusters), selected_metrics, znorm = znorm )
+                    if 'Agglomerative' in method:
+                        linkage = 'single'
+                        if 'Average' in method:
+                            linkage = 'average'
+                        if 'Ward' in method:
+                            linkage = 'ward'
+                        clusters = calculate_new_aggclustering(app._df, int(num_clusters), selected_metrics,linkage, znorm = znorm )
                     if method == 'KMeans':
                         clusters = calculate_new_kmeans(app._df, int(num_clusters), selected_metrics, znorm = znorm )
+                    if method == 'Spectral Clustering':
+                        clusters = calculate_new_spectclustering(app._df, int(num_clusters), selected_metrics, znorm = znorm  )
                     app._prev_cluster_clicks += 1
                     app._cluster_color = [palette[c] for c in clusters]
 
@@ -730,10 +466,10 @@ def configure_app(app, df,
         
 
         @app.callback(dash.dependencies.Output('cluster_link', 'href'),
-            [dash.dependencies.Input('cluster-graphic', 'selectedData')
-            ])
+            [dash.dependencies.Input('cluster-graphic', 'selectedData'),
+            dash.dependencies.Input('id_list', 'value')])
 
-        def update_cluster_link(selectedData):
+        def update_cluster_link(selectedData, ids):
 
             if selectedData:
                 selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
