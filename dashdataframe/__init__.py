@@ -94,8 +94,9 @@ def configure_app(app, df,
     df: pandas.DataFrame
         a pandas dataframe to plot
     link_func: func
-       what text to display on the link generated for  call the link
-       function should take a list of row indices in 
+       function that has the form f(indices, df) 
+       where indices are the row indices of the df datafame that are selected.
+       f should return a url that will be used to populate the dynamic link
     create_link: bool
         whether to create a link for each point (default = True)
     link_func: fun
