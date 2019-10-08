@@ -2,3 +2,4 @@ pandas
 numpy
 dash
 plotly
+umap-learn
