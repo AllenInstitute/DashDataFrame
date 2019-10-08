@@ -23,7 +23,7 @@ import dashdataframe.dashdf_layouts as dfl
 
 #dcc = importlib.import_module("apps.dash-svm.utils.dash_reusable_components")
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 
