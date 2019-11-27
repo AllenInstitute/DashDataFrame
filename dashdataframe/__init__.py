@@ -11,7 +11,7 @@ import plotly.graph_objs as go
 import plotly.figure_factory as ff
 from textwrap import dedent
 from typing import List
-
+import json
 import umap
 import seaborn as sns
 from scipy.stats import zscore
@@ -86,6 +86,7 @@ def calculate_new_spectclustering(dff, num_clusters, metrics, znorm=False):
 def configure_app(app, df,
                   link_name="dynamiclink",
                   link_func=None,
+                  display_func=None,
                   plot_columns=None,
                   add_umap=False,
                   add_clustering=False):
@@ -144,6 +145,18 @@ def configure_app(app, df,
     app._prev_reset_clicks = 0
     app._df = df
     app._df['visible'] = True
+
+    @app.callback(dash.dependencies.Output('selected-data','children'),
+    [dash.dependencies.Input('indicator-graphic', 'selectedData')])
+    def update_selected(selectedData):
+        if selectedData:
+            if display_func is None:
+                return []
+            else:
+                print('yes')
+                selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
+                                        dtype=np.int64)
+                return display_func(df, selected_mesh_ids)
 
     @app.callback(
         dash.dependencies.Output('indicator-graphic', 'figure'),
