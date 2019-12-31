@@ -103,6 +103,9 @@ def make_scatter_layout(plot_columns, color_options, link_name):
             style={'width': '80%','float':'right', 'display':'inline-block', 'fontFamily':'Arial'}),
 
         ]),
+        html.Div([
+            html.Pre(id='selected-data')
+        ])
     ])
     return scatter_layout
 
