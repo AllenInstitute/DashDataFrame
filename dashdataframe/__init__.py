@@ -153,7 +153,6 @@ def configure_app(app, df,
             if display_func is None:
                 return []
             else:
-                print('yes')
                 selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
                                         dtype=np.int64)
                 return display_func(df, selected_mesh_ids)
