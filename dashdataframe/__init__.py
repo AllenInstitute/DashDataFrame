@@ -200,7 +200,7 @@ def configure_app(app, df,
         hoverdata = app._df[app._df.visible].index.values
 
         return {
-            'data': [go.Scatter(
+            'data': [go.Scattergl(
                 x=app._df.loc[app._df.visible, xaxis_column_name],
                 y=app._df.loc[app._df.visible, yaxis_column_name],
                 customdata=app._df.loc[app._df.visible].index.values,
