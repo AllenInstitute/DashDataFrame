@@ -160,7 +160,20 @@ def make_umap_layout(plot_columns, link_name):
 
             html.Button('Calculate UMAP', 
                     id='umap_button',
-                    style={'fontSize':'12px'})
+                    style={'fontSize':'12px'}),
+
+            dcc.Markdown(dedent('''
+                Looking for specific data points? Enter IDs below.
+                ''')),
+
+            dcc.Input(
+                id = 'umap_id_list',
+                placeholder='Enter list of IDs you would like to highlight',
+                type='text',
+                size = 80,
+                value='',
+                style= {'fontSize': '14', 'height': '50px', 'width':'95%'}
+            ),
 
         ],
         style={'width': '18%', 'display': 'inline-block', 'height':800, 'overflowY':'scroll',

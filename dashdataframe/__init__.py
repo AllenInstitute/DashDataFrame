@@ -29,7 +29,6 @@ __version__ = "0.4.0"
 
 # function to highlight a certain subset of points depending on selection
 def highlight_points(dff, selectedData, ids):
-        
     dff['outline_color']='white'
     dff['outline_width']=.5
     if selectedData:
@@ -42,6 +41,7 @@ def highlight_points(dff, selectedData, ids):
     if ids:
         list_ids = ids.split(',')
         list_ids = np.array(list_ids, dtype=np.int64)
+        dff.loc[dff.index.isin(list_ids),'outline_width']=4
         dff.loc[dff.index.isin(list_ids),'outline_color']='orange'
         dff.loc[dff.index.isin(list_ids) & dff.index.isin(selected_mesh_ids),'outline_color']='orchid'
             
@@ -53,8 +53,9 @@ def calculate_new_umap(dff, metrics, znorm = False):
         M = M.apply(zscore)
         M = M.values
     embedding = umap.UMAP(min_dist=0).fit_transform(M)
-    
-    return embedding[:,0],embedding[:,1]
+    dff['e0'] = embedding[:,0]
+    dff['e1'] = embedding[:,1]
+    return dff
 
 def calculate_new_kmeans(dff,num_clusters, metrics, znorm=False):
     M = dff.loc[dff.visible].dropna()[metrics]
@@ -145,6 +146,8 @@ def configure_app(app, df,
     app._prev_reset_clicks = 0
     app._df = df
     app._df['visible'] = True
+    app._df['e0'] = 0
+    app._df['e1'] = 0
 
     @app.callback(dash.dependencies.Output('selected-data','children'),
     [dash.dependencies.Input('indicator-graphic', 'selectedData')])
@@ -207,7 +210,7 @@ def configure_app(app, df,
                 text=hoverdata,
                 mode='markers',
                 marker={
-                    'size': 5,
+                    'size': 6,
                     'opacity': 0.5,
                     'line': {'width': outline_width, 'color': outline_color},
                     'color': color,
@@ -264,10 +267,12 @@ def configure_app(app, df,
         [dash.dependencies.Input('umap_metrics', 'values'),
         dash.dependencies.Input('umap_norm', 'value'),
         dash.dependencies.Input('umap_button', 'n_clicks'),
-        dash.dependencies.Input('color_feature','value')
+        dash.dependencies.Input('color_feature','value'),
+        dash.dependencies.Input('umap-graphic', 'selectedData'),
+        dash.dependencies.Input('umap_id_list', 'value')
         ])
         
-        def update_umap_graph(selected_metrics, norm, umap_clicks, color_feature):
+        def update_umap_graph(selected_metrics, norm, umap_clicks, color_feature, selectedData, ids):
             
             Znorm = False
             if norm == 'Znorm':
@@ -275,21 +280,26 @@ def configure_app(app, df,
             if umap_clicks is not None:
                 if umap_clicks != app._prev_umap_clicks:
                     app._prev_umap_clicks += 1
-                    e0, e1 = calculate_new_umap(app._df,selected_metrics, znorm = Znorm)       
-            else:
-                e0=[0]
-                e1 = [0] 
+                    app._df = calculate_new_umap(app._df,selected_metrics, znorm = Znorm)       
+            # else:
+            #     e0=[0]
+            #     e1 = [0] 
             hoverdata = app._df[app._df.visible].index.values
-            color = 'purple'
+            color = 'mediumpurple'
+            outline_color = ['white'] * np.sum(app._df.visible)
+            outline_width = [0.5] * np.sum(app._df.visible)
+            if selectedData or ids:
+                outline_color, outline_width = highlight_points(app._df, selectedData, ids)
             return {
                 'data': [go.Scattergl(
-                    x=e0,
-                    y=e1,
+                    x=app._df['e0'],
+                    y=app._df['e1'],
                     customdata=app._df.loc[app._df.visible].index.values,
                     text=hoverdata,
                     mode='markers',
                     marker={
-                        'size': 7,
+                        'line': {'width': outline_width, 'color': outline_color},
+                        'size': 6,
                         'opacity': 0.5,
                         'color': color
                     }
