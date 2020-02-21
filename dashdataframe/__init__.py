@@ -28,22 +28,25 @@ __version__ = "0.4.0"
 
 
 # function to highlight a certain subset of points depending on selection
-def highlight_points(dff, selectedData, ids):
+def highlight_points(dff, selectedData, ids, highlight_by = None):
     dff['outline_color']='white'
     dff['outline_width']=.5
+    dff_highlight = dff.index
+    if highlight_by != None:
+        dff_highlight = dff[highlight_by]
     if selectedData:
         selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
                                     dtype=np.int64)
-        dff.loc[dff.index.isin(selected_mesh_ids),'outline_color']='firebrick'
+        dff.loc[dff.index.isin(selected_mesh_ids),'outline_color']='forestgreen'
         dff.loc[dff.index.isin(selected_mesh_ids),'outline_width']=4
     else:
         selected_mesh_ids =  np.array([], dtype=np.int64)
     if ids:
         list_ids = ids.split(',')
         list_ids = np.array(list_ids, dtype=np.int64)
-        dff.loc[dff.index.isin(list_ids),'outline_width']=4
-        dff.loc[dff.index.isin(list_ids),'outline_color']='orange'
-        dff.loc[dff.index.isin(list_ids) & dff.index.isin(selected_mesh_ids),'outline_color']='orchid'
+        dff.loc[dff_highlight.isin(list_ids),'outline_width']=4
+        dff.loc[dff_highlight.isin(list_ids),'outline_color']='purple'
+        dff.loc[dff_highlight.isin(list_ids) & dff.index.isin(selected_mesh_ids),'outline_color']='orchid'
             
     return dff[dff.visible].outline_color.values, dff[dff.visible].outline_width.values
 
@@ -89,6 +92,7 @@ def configure_app(app, df,
                   link_func=None,
                   display_func=None,
                   plot_columns=None,
+                  highlight_by = None,
                   add_umap=False,
                   add_clustering=False):
     """ 
@@ -144,6 +148,7 @@ def configure_app(app, df,
     app._prev_cluster_none_clicks = 0
     app._prev_sort_clicks = 0
     app._prev_reset_clicks = 0
+    app._highlight_by = highlight_by
     app._df = df
     app._df['visible'] = True
     app._df['e0'] = 0
@@ -191,7 +196,7 @@ def configure_app(app, df,
                 selectedData = None
 
         if color_feature == 'None':
-            color = 'mediumpurple'
+            color = 'gray'
             min_max = [0, 1]
         else:
             color = app._df.loc[app._df.visible, color_feature]
@@ -199,7 +204,8 @@ def configure_app(app, df,
         outline_color = ['white'] * np.sum(app._df.visible)
         outline_width = [0.5] * np.sum(app._df.visible)
         if selectedData or ids:
-            outline_color, outline_width = highlight_points(app._df, selectedData, ids)
+            outline_color, outline_width = highlight_points(app._df, selectedData, ids,
+                                            highlight_by=app._highlight_by)
         hoverdata = app._df[app._df.visible].index.values
 
         return {
@@ -285,11 +291,12 @@ def configure_app(app, df,
             #     e0=[0]
             #     e1 = [0] 
             hoverdata = app._df[app._df.visible].index.values
-            color = 'mediumpurple'
+            color = 'gray'
             outline_color = ['white'] * np.sum(app._df.visible)
             outline_width = [0.5] * np.sum(app._df.visible)
             if selectedData or ids:
-                outline_color, outline_width = highlight_points(app._df, selectedData, ids)
+                outline_color, outline_width = highlight_points(app._df, selectedData, ids,
+                                                highlight_by=app._highlight_by)
             return {
                 'data': [go.Scattergl(
                     x=app._df['e0'],
