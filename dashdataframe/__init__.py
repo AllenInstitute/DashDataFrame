@@ -28,25 +28,32 @@ __version__ = "0.4.0"
 
 
 # function to highlight a certain subset of points depending on selection
-def highlight_points(dff, selectedData, ids, highlight_by = None):
+def highlight_points(dff, selectedData, ids):
+    idx = pd.IndexSlice
     dff['outline_color']='white'
-    dff['outline_width']=.5
-    dff_highlight = dff.index
-    if highlight_by != None:
-        dff_highlight = dff[highlight_by]
-    if selectedData:
-        selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
-                                    dtype=np.int64)
-        dff.loc[dff.index.isin(selected_mesh_ids),'outline_color']='forestgreen'
-        dff.loc[dff.index.isin(selected_mesh_ids),'outline_width']=4
-    else:
-        selected_mesh_ids =  np.array([], dtype=np.int64)
+    dff['outline_width']=1.0
+    #dff_highlight = dff.index
+    # if highlight_by != None:
+    #     dff_highlight = dff[highlight_by]
+
     if ids:
         list_ids = ids.split(',')
         list_ids = np.array(list_ids, dtype=np.int64)
-        dff.loc[dff_highlight.isin(list_ids),'outline_width']=4
-        dff.loc[dff_highlight.isin(list_ids),'outline_color']='purple'
-        dff.loc[dff_highlight.isin(list_ids) & dff.index.isin(selected_mesh_ids),'outline_color']='orchid'
+        #dff.loc[dff_highlight.isin(list_ids),'outline_width']=4
+        #dff.loc[dff_highlight.isin(list_ids),'outline_color']='purple'
+        dff.loc[list_ids, 'outline_color'] = 'purple'
+        dff.loc[list_ids, 'outline_w'] = 4
+        #dff.loc[dff_highlight.isin(list_ids) & dff.index.isin(selected_mesh_ids),'outline_color']='orchid'
+    if selectedData:
+        selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
+                                    dtype=np.int64)
+        dff.loc[pd.IndexSlice[:, selected_mesh_ids], 'outline_color'] ='forestgreen' 
+        dff.loc[pd.IndexSlice[:, selected_mesh_ids], 'outline_width'] = 4                          
+        #dff.loc[dff.index.(selected_mesh_ids),'outline_color']='forestgreen'
+        #dff.loc[dff.index.isin(selected_mesh_ids),'outline_width']=4
+    else:
+        selected_mesh_ids =  np.array([], dtype=np.int64)
+
             
     return dff[dff.visible].outline_color.values, dff[dff.visible].outline_width.values
 
@@ -92,7 +99,7 @@ def configure_app(app, df,
                   link_func=None,
                   display_func=None,
                   plot_columns=None,
-                  highlight_by = None,
+                  index_columns = None,
                   add_umap=False,
                   add_clustering=False):
     """ 
@@ -148,11 +155,14 @@ def configure_app(app, df,
     app._prev_cluster_none_clicks = 0
     app._prev_sort_clicks = 0
     app._prev_reset_clicks = 0
-    app._highlight_by = highlight_by
+    #app._highlight_by = highlight_by
     app._df = df
-    app._df['visible'] = True
+    app._df['visible'] = False
     app._df['e0'] = 0
     app._df['e1'] = 0
+
+    if index_columns != None:
+        app._df = app._df.set_index(index_columns)
 
     @app.callback(dash.dependencies.Output('selected-data','children'),
     [dash.dependencies.Input('indicator-graphic', 'selectedData')])
@@ -181,19 +191,31 @@ def configure_app(app, df,
     def update_graph(xaxis_column_name, yaxis_column_name,
                     xaxis_type, yaxis_type, color_feature, sort_clicks, reset_clicks,
                     selectedData, ids):
+        idx = pd.IndexSlice
+
+        if reset_clicks is not None:
+            if reset_clicks != app._prev_reset_clicks:
+                app._prev_reset_clicks += 1
+                app._df.visible = False
+                selectedData = None
+        
+        if ids != None:
+            print('DOING SOMETHING')
+            print(app._df.index.values)
+            l_ids = ids.split(' ')
+            list_ids =[int(i) for i in l_ids]
+            print(ids)
+            #app._df['visible'] = False
+            app._df.loc[pd.IndexSlice[list_ids, :], 'visible'] = True
 
         if sort_clicks is not None:
             if sort_clicks != app._prev_sort_clicks:
                 app._prev_sort_clicks += 1
                 selected_ids = np.array(
-                    [p['customdata'] for p in selectedData['points']], dtype=np.int64)
-                app._df['visible'] = app._df.index.isin(selected_ids)
-                selectedData = None
-        if reset_clicks is not None:
-            if reset_clicks != app._prev_reset_clicks:
-                app._prev_reset_clicks += 1
-                app._df.visible = True
-                selectedData = None
+                    [p['customdata'] for p in selectedData['points']]).astype(float)
+                app._df['visible'] = False
+                app._df.loc[pd.IndexSlice[:, selected_ids], 'visible'] = True
+                selectedData = None 
 
         if color_feature == 'None':
             color = 'gray'
@@ -201,18 +223,18 @@ def configure_app(app, df,
         else:
             color = app._df.loc[app._df.visible, color_feature]
             min_max = np.percentile(color, [0.1, 99.9])
+          
         outline_color = ['white'] * np.sum(app._df.visible)
         outline_width = [0.5] * np.sum(app._df.visible)
         if selectedData or ids:
-            outline_color, outline_width = highlight_points(app._df, selectedData, ids,
-                                            highlight_by=app._highlight_by)
+            outline_color, outline_width = highlight_points(app._df, selectedData, ids)
         hoverdata = app._df[app._df.visible].index.values
 
         return {
             'data': [go.Scattergl(
                 x=app._df.loc[app._df.visible, xaxis_column_name],
                 y=app._df.loc[app._df.visible, yaxis_column_name],
-                customdata=app._df.loc[app._df.visible].index.values,
+                customdata=app._df.loc[app._df.visible].index.get_level_values(1),
                 text=hoverdata,
                 mode='markers',
                 marker={
@@ -249,17 +271,17 @@ def configure_app(app, df,
                 dash.dependencies.Input('id_list', 'value')])
 
     def update_link(selectedData, ids):
-        
+        idx = pd.IndexSlice
         if selectedData:
             selected_mesh_ids = np.array([p['customdata'] for p in selectedData['points']],
                                         dtype=np.int64)
-            selected_df = app._df[app._df.index.isin(selected_mesh_ids)]
-            selected_mesh_ids = selected_df.index.values
+            selected_df = app._df.loc[idx[:, list(selected_mesh_ids)], :]
+            selected_mesh_ids = selected_df.index.get_level_values(1)
         else:
             selected_mesh_ids = np.array([], dtype=np.int64)
-        if ids:
-            list_ids = np.array(ids.split(','), dtype=np.int64)
-            selected_mesh_ids = np.concatenate([selected_mesh_ids, list_ids])
+        # if ids:
+        #     list_ids = np.array(ids.split(','), dtype=np.int64)
+        #     selected_mesh_ids = np.concatenate([selected_mesh_ids, list_ids])
         if link_func is not None:
             link = link_func(selected_mesh_ids, app._df)
         else:
@@ -290,18 +312,17 @@ def configure_app(app, df,
             # else:
             #     e0=[0]
             #     e1 = [0] 
-            hoverdata = app._df[app._df.visible].index.values
+            hoverdata = app._df.loc[app._df.visible].index.get_level_values(1)
             color = 'gray'
             outline_color = ['white'] * np.sum(app._df.visible)
             outline_width = [0.5] * np.sum(app._df.visible)
             if selectedData or ids:
-                outline_color, outline_width = highlight_points(app._df, selectedData, ids,
-                                                highlight_by=app._highlight_by)
+                outline_color, outline_width = highlight_points(app._df, selectedData, ids)
             return {
                 'data': [go.Scattergl(
                     x=app._df['e0'],
                     y=app._df['e1'],
-                    customdata=app._df.loc[app._df.visible].index.values,
+                    customdata=app._df.loc[app._df.visible].index.get_level_values(1),
                     text=hoverdata,
                     mode='markers',
                     marker={
@@ -419,7 +440,7 @@ def configure_app(app, df,
             if selectedData:
                 outline_color, outline_width = highlight_points(app._df, selectedData, id_type)
 
-            hoverdata = app._df[app._df.visible].index.values
+            hoverdata = app._df.loc[app._df.visible].index.get_level_values(1)
 
             znorm = False
             if norm=='Znorm':
@@ -453,7 +474,7 @@ def configure_app(app, df,
                 'data': [go.Scattergl(
                     x=app._df.loc[app._df.visible, xaxis_column_name],
                     y=app._df.loc[app._df.visible, yaxis_column_name],
-                    customdata=app._df.loc[app._df.visible].index.values,
+                    customdata=app._df.loc[app._df.visible].index.get_level_values(1),
                     text=hoverdata,
                     mode='markers',
                     marker=marker_dict
