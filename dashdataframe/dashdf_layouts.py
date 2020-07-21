@@ -78,7 +78,7 @@ def make_scatter_layout(plot_columns, color_options, link_name):
                 id = 'id_list',
                 placeholder='Enter list of IDs you would like to highlight',
                 type='text',
-                size = 80,
+                size = "80",
                 value='',
                 style= {'fontSize': '14', 'height': '50px', 'width':'95%'}
             ),
@@ -222,7 +222,7 @@ def make_cluster_layout(plot_columns, link_name):
                             id = 'num_clusters',
                             placeholder='Enter the number of clusters yo',
                             type='text',
-                            size = 80,
+                            size = "80",
                             value=None,
                             style= {'fontSize': '14', 'height': '50px', 'width':'95%'}
                             ),
