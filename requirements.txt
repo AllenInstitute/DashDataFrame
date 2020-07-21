@@ -3,3 +3,4 @@ numpy
 dash
 plotly
 umap-learn
+seaborn
