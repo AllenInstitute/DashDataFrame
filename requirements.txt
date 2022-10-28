@@ -1,6 +1,8 @@
 pandas
 numpy
-dash
+dash>=2
 plotly
 umap-learn
+scikit-learn
 seaborn
+scipy
